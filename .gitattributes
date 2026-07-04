@@ -1,0 +1,11 @@
+# Normalize all text files to LF in the repository
+* text=auto eol=lf
+
+# Windows batch scripts must keep CRLF
+*.bat text eol=crlf
+
+# Treat these as binary (never normalize / diff)
+*.jar binary
+*.png binary
+*.gif binary
+*.ico binary

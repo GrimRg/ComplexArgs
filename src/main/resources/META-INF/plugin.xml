@@ -1,0 +1,34 @@
+<idea-plugin>
+    <id>com.grimrg.complexargs</id>
+    <name>ComplexArgs</name>
+    <vendor url="https://github.com/GrimRg">GrimRg</vendor>
+    <description><![CDATA[
+        <p>Manage Unreal Engine commandline argument presets for Rider C++ run configurations.</p>
+        <p>A main-toolbar widget rolls out an editor where you organise arguments into groups, toggle
+        them with checkboxes, and reorder them by drag-and-drop. Enabled entries are concatenated in
+        the order you tick them and appended to the selected run configuration's program parameters at
+        launch - your existing arguments are preserved, not overwritten.</p>
+        <ul>
+          <li>Groups with drag-and-drop reordering within and across groups.</li>
+          <li>Per-project enable/order state, kept separate from the shared preset definitions.</li>
+          <li>Working-directory override to share preset definitions across branches or checkouts.</li>
+        </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.rider</depends>
+    <depends>com.jetbrains.rider-cpp</depends>
+
+    <extensions defaultExtensionNs="com.jetbrains.rider-cpp">
+        <run.configurations.cpp implementation="com.grimrg.complexargs.ComplexArgsCppExtension"/>
+    </extensions>
+
+    <actions>
+        <group id="ComplexArgs.MainToolbar">
+            <action id="ComplexArgs.Widget"
+                    class="com.grimrg.complexargs.ArgsToolbarAction"
+                    text="ComplexArgs"/>
+            <add-to-group group-id="MainToolbarCenter" anchor="first"/>
+        </group>
+    </actions>
+</idea-plugin>
