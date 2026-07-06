@@ -10,7 +10,6 @@ import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
@@ -40,6 +39,7 @@ class ArgsToolbarAction : AnAction(), CustomComponentAction, DumbAware
     {
         val project = e.project
         e.presentation.isEnabledAndVisible = project != null
+        e.presentation.putClientProperty(PROJECT_KEY, project)
         if (project != null)
         {
             val combined = ArgStore.combinedFor(project)
@@ -56,14 +56,15 @@ class ArgsToolbarAction : AnAction(), CustomComponentAction, DumbAware
 
     override fun updateCustomComponent(component: JComponent, presentation: Presentation)
     {
-        (component as? ArgsToolbarWidget)?.setDisplayText(presentation.getClientProperty(TEXT_KEY) ?: "")
+        val widget = component as? ArgsToolbarWidget ?: return
+        widget.boundProject = presentation.getClientProperty(PROJECT_KEY)
+        widget.setDisplayText(presentation.getClientProperty(TEXT_KEY) ?: "")
     }
 
     private fun openPopup(widget: ArgsToolbarWidget)
     {
-        val dataContext = DataManager.getInstance().getDataContext(widget)
-        val project = CommonDataKeys.PROJECT.getData(dataContext)
-            ?: ProjectManager.getInstance().openProjects.firstOrNull()
+        val project = widget.boundProject
+            ?: CommonDataKeys.PROJECT.getData(DataManager.getInstance().getDataContext(widget))
             ?: return
 
         // Read + parse the presets off the EDT so opening never blocks the UI while the disk is busy.
@@ -95,5 +96,6 @@ class ArgsToolbarAction : AnAction(), CustomComponentAction, DumbAware
     private companion object
     {
         val TEXT_KEY = Key.create<String>("ComplexArgs.Text")
+        val PROJECT_KEY = Key.create<Project>("ComplexArgs.Project")
     }
 }

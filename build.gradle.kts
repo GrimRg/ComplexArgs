@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.grimrg"
-version = "0.9.0"
+version = "0.9.1"
 
 repositories {
     mavenCentral()
@@ -34,7 +34,11 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
-            Initial release for closed testing (0.9.0).
+            <b>0.9.1</b>
+            <ul>
+              <li>Fix: Several issues when multiple projects are opened.</li>
+            </ul>
+            <b>0.9.0</b> - initial release for closed testing.
             <ul>
               <li>Main-toolbar widget and roll-out editor for Unreal Engine commandline presets.</li>
               <li>Groups with drag-and-drop reordering of options within and across groups.</li>

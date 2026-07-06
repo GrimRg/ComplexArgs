@@ -1,6 +1,7 @@
 package com.grimrg.complexargs
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import java.awt.Component
@@ -25,6 +26,8 @@ class ArgsToolbarWidget(private val onClick: () -> Unit) : JPanel()
 {
     private var hovered = false
     private val label = JBLabel()
+
+    var boundProject: Project? = null
 
     init
     {
