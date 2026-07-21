@@ -20,10 +20,8 @@ import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 
 /**
- * Per-option on/off checkbox, grayscale to match the rest of the UI. Focusable for keyboard use:
- * Enter/Space toggles, Up/Down move between checkboxes, Right moves to the row's text field.
- * The selection rank lives in the model (ArgOption.selectionOrder); this control only paints the
- * on/off state.
+ * Grayscale check control, tri-state (off / on / mixed). Focusable: Enter/Space toggles,
+ * Up/Down/Right fire the nav callbacks. State lives in the model; this only paints it.
  */
 class OrderIndicator(
     private val onToggle: () -> Unit,
@@ -32,7 +30,9 @@ class OrderIndicator(
     private val onRight: () -> Unit
 ) : JComponent()
 {
-    private var on = false
+    enum class State { OFF, ON, MIXED }
+
+    private var state = State.OFF
 
     init
     {
@@ -70,9 +70,11 @@ class OrderIndicator(
         })
     }
 
-    fun update(on: Boolean)
+    fun update(on: Boolean) = update(if (on) State.ON else State.OFF)
+
+    fun update(newState: State)
     {
-        this.on = on
+        state = newState
         repaint()
     }
 
@@ -88,7 +90,7 @@ class OrderIndicator(
         val box = RoundRectangle2D.Float(x.toFloat(), y.toFloat(), s.toFloat(), s.toFloat(), r, r)
         val fg = UIUtil.getLabelForeground()
 
-        if (on)
+        if (state != State.OFF)
         {
             g2.color = ColorUtil.withAlpha(fg, 0.12)
             g2.fill(box)
@@ -97,12 +99,17 @@ class OrderIndicator(
         g2.stroke = BasicStroke(JBUI.scale(1).toFloat())
         g2.draw(box)
 
-        if (on)
+        g2.color = fg
+        g2.stroke = BasicStroke(JBUI.scale(2).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+        when (state)
         {
-            g2.color = fg
-            g2.stroke = BasicStroke(JBUI.scale(2).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-            g2.drawLine(x + (s * 0.28f).toInt(), y + (s * 0.52f).toInt(), x + (s * 0.43f).toInt(), y + (s * 0.68f).toInt())
-            g2.drawLine(x + (s * 0.43f).toInt(), y + (s * 0.68f).toInt(), x + (s * 0.72f).toInt(), y + (s * 0.32f).toInt())
+            State.ON ->
+            {
+                g2.drawLine(x + (s * 0.28f).toInt(), y + (s * 0.52f).toInt(), x + (s * 0.43f).toInt(), y + (s * 0.68f).toInt())
+                g2.drawLine(x + (s * 0.43f).toInt(), y + (s * 0.68f).toInt(), x + (s * 0.72f).toInt(), y + (s * 0.32f).toInt())
+            }
+            State.MIXED -> g2.drawLine(x + (s * 0.28f).toInt(), y + s / 2, x + (s * 0.72f).toInt(), y + s / 2)
+            State.OFF -> {}
         }
         g2.dispose()
     }

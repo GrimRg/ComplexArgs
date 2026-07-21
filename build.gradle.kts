@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.grimrg"
-version = "0.9.1"
+version = "0.9.2"
 
 repositories {
     mavenCentral()
@@ -34,6 +34,12 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
+            <b>0.9.2</b>
+            <ul>
+              <li>Enable or disable a whole group at once with a tri-state header checkbox.</li>
+              <li>Fix: extra empty space below the option list.</li>
+              <li>New icon for the reset size/position button.</li>
+            </ul>
             <b>0.9.1</b>
             <ul>
               <li>Fix: Several issues when multiple projects are opened.</li>

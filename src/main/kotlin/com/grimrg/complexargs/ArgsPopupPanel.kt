@@ -90,6 +90,7 @@ class ArgsPopupPanel(
     // same text are never collapsed together.
     private val indicators = IdentityHashMap<ArgOption, OrderIndicator>()
     private val fields = IdentityHashMap<ArgOption, OptionTextCell>()
+    private val groupIndicators = IdentityHashMap<ArgGroup, OrderIndicator>()
     private val dirSelector = HoverIconLabel(AllIcons.Nodes.Folder) { chooseWorkingDir() }
     private lateinit var newGroupButton: JButton
     private val rowMetas = mutableListOf<RowMeta>()
@@ -160,7 +161,7 @@ class ArgsPopupPanel(
             groups.forEach { group -> group.options.forEach { it.selectionOrder = 0 } }
             refresh()
         }
-        val reset = flatIconButton(AllIcons.General.FitContent, "Reset popup size") { resetSize() }
+        val reset = flatIconButton(AllIcons.Actions.MoveToWindow, "Reset popup size and position") { resetSize() }
 
         val actions = JPanel().apply {
             isOpaque = false
@@ -266,6 +267,7 @@ class ArgsPopupPanel(
         rowsPanel.removeAll()
         indicators.clear()
         fields.clear()
+        groupIndicators.clear()
         rowMetas.clear()
         metaByComp.clear()
 
@@ -315,6 +317,8 @@ class ArgsPopupPanel(
         label.foreground = UIUtil.getInactiveTextColor()
         return JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(6, leftPad, 6, 4)
+            minimumSize = Dimension(0, ROW_HEIGHT)
+            preferredSize = Dimension(JBUI.scale(DEFAULT_WIDTH), ROW_HEIGHT)
             maximumSize = Dimension(Int.MAX_VALUE, ROW_HEIGHT)
             add(label, BorderLayout.WEST)
         }
@@ -325,6 +329,8 @@ class ArgsPopupPanel(
         val row = JPanel()
         row.layout = BoxLayout(row, BoxLayout.X_AXIS)
         row.border = JBUI.Borders.empty(2, 0)
+        row.minimumSize = Dimension(0, ROW_HEIGHT)
+        row.preferredSize = Dimension(JBUI.scale(DEFAULT_WIDTH), ROW_HEIGHT)
         row.maximumSize = Dimension(Int.MAX_VALUE, ROW_HEIGHT)
 
         val triangle = JBLabel(if (group.expanded) AllIcons.General.ChevronDown else AllIcons.General.ChevronRight)
@@ -359,6 +365,16 @@ class ArgsPopupPanel(
             }
         })
 
+        val groupCheck = OrderIndicator(
+            onToggle = { toggleGroup(group) },
+            onUp = {},
+            onDown = {},
+            onRight = { name.requestFocusInWindow() }
+        )
+        groupCheck.toolTipText = "Enable or disable all options in this group"
+        groupCheck.alignmentY = 0.5f
+        groupIndicators[group] = groupCheck
+
         val addOption = flatIconButton(AllIcons.General.Add, "Add option to group") {
             group.options.add(ArgOption("", 0))
             rebuildRows()
@@ -375,6 +391,7 @@ class ArgsPopupPanel(
 
         row.add(triangle)
         row.add(grip)
+        row.add(groupCheck)
         row.add(name)
         row.add(addOption)
         row.add(deleteGroup)
@@ -386,6 +403,8 @@ class ArgsPopupPanel(
         val row = JPanel()
         row.layout = BoxLayout(row, BoxLayout.X_AXIS)
         row.border = JBUI.Borders.empty(2, 0)
+        row.minimumSize = Dimension(0, ROW_HEIGHT)
+        row.preferredSize = Dimension(JBUI.scale(DEFAULT_WIDTH), ROW_HEIGHT)
         row.maximumSize = Dimension(Int.MAX_VALUE, ROW_HEIGHT)
 
         val grip = JBLabel(AllIcons.General.Drag)
@@ -685,11 +704,52 @@ class ArgsPopupPanel(
         {
             indicator.update(option.selectionOrder > 0)
         }
+        for ((group, indicator) in groupIndicators)
+        {
+            indicator.update(groupState(group))
+        }
         for ((option, field) in fields)
         {
             applyFieldStyle(option, field)
         }
         refreshPreviewAndSave()
+    }
+
+    private fun groupState(group: ArgGroup): OrderIndicator.State
+    {
+        val options = group.options
+        if (options.isEmpty())
+        {
+            return OrderIndicator.State.OFF
+        }
+        val selected = options.count { it.selectionOrder > 0 }
+        return when (selected)
+        {
+            0 -> OrderIndicator.State.OFF
+            options.size -> OrderIndicator.State.ON
+            else -> OrderIndicator.State.MIXED
+        }
+    }
+
+    private fun toggleGroup(group: ArgGroup)
+    {
+        val allSelected = group.options.isNotEmpty() && group.options.all { it.selectionOrder > 0 }
+        if (allSelected)
+        {
+            group.options.forEach { it.selectionOrder = 0 }
+        }
+        else
+        {
+            var next = ArgCombiner.nextOrderInGroups(groups)
+            for (option in group.options)
+            {
+                if (option.selectionOrder <= 0)
+                {
+                    option.selectionOrder = next++
+                }
+            }
+        }
+        refresh()
     }
 
     private fun applyFieldStyle(option: ArgOption, field: OptionTextCell)
