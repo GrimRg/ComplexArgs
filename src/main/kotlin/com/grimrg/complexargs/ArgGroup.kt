@@ -1,11 +1,13 @@
 package com.grimrg.complexargs
 
 /**
- * A named, collapsible group of [ArgOption]s. Groups are organizational only - the combined
- * commandline still uses every checked option across all groups in checkbox-selection order.
+ * A named, collapsible group of [ArgOption]s. A group can be temporarily deactivated ([inactive]),
+ * which grays out its options and drops them from the combined commandline without changing their
+ * checked state.
  */
 data class ArgGroup(
     var name: String = "New Group",
     var expanded: Boolean = true,
-    val options: MutableList<ArgOption> = mutableListOf()
+    val options: MutableList<ArgOption> = mutableListOf(),
+    var inactive: Boolean = false
 )

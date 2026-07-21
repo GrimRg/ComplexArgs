@@ -32,7 +32,7 @@ object ArgCombiner
 
     fun flatten(groups: List<ArgGroup>): List<ArgOption> = groups.flatMap { it.options }
 
-    fun combineGroups(groups: List<ArgGroup>): String = combine(flatten(groups))
+    fun combineGroups(groups: List<ArgGroup>): String = combine(groups.filterNot { it.inactive }.flatMap { it.options })
 
     fun rankInGroups(option: ArgOption, groups: List<ArgGroup>): Int? = displayRank(option, flatten(groups))
 

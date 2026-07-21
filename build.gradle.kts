@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.grimrg"
-version = "0.9.2"
+version = "0.9.3"
 
 repositories {
     mavenCentral()
@@ -34,6 +34,10 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
+            <b>0.9.3</b>
+            <ul>
+              <li>Groups can be temporarily deactivated: an inactive group is grayed out, its checkboxes and toggle are crossed out, and it is excluded from the commandline (replaces group select/deselect).</li>
+            </ul>
             <b>0.9.2</b>
             <ul>
               <li>Enable or disable a whole group at once with a tri-state header checkbox.</li>

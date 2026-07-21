@@ -7,7 +7,9 @@ import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.ui.ColorUtil
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
 import com.intellij.ui.awt.RelativePoint
@@ -18,7 +20,9 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import java.awt.AlphaComposite
+import java.awt.BasicStroke
 import java.awt.BorderLayout
+import java.awt.Component
 import java.awt.Cursor
 import java.awt.Dimension
 import java.awt.Font
@@ -26,6 +30,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Point
 import java.awt.Rectangle
+import java.awt.RenderingHints
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseAdapter
@@ -90,7 +95,6 @@ class ArgsPopupPanel(
     // same text are never collapsed together.
     private val indicators = IdentityHashMap<ArgOption, OrderIndicator>()
     private val fields = IdentityHashMap<ArgOption, OptionTextCell>()
-    private val groupIndicators = IdentityHashMap<ArgGroup, OrderIndicator>()
     private val dirSelector = HoverIconLabel(AllIcons.Nodes.Folder) { chooseWorkingDir() }
     private lateinit var newGroupButton: JButton
     private val rowMetas = mutableListOf<RowMeta>()
@@ -267,7 +271,6 @@ class ArgsPopupPanel(
         rowsPanel.removeAll()
         indicators.clear()
         fields.clear()
-        groupIndicators.clear()
         rowMetas.clear()
         metaByComp.clear()
 
@@ -364,16 +367,21 @@ class ArgsPopupPanel(
                 scheduleSave()
             }
         })
+        if (group.inactive)
+        {
+            name.foreground = UIUtil.getInactiveTextColor()
+        }
 
-        val groupCheck = OrderIndicator(
-            onToggle = { toggleGroup(group) },
-            onUp = {},
-            onDown = {},
-            onRight = { name.requestFocusInWindow() }
-        )
-        groupCheck.toolTipText = "Enable or disable all options in this group"
-        groupCheck.alignmentY = 0.5f
-        groupIndicators[group] = groupCheck
+        val baseToggleIcon = AllIcons.Actions.Show
+        val activeToggle = flatIconButton(
+            if (group.inactive) SlashedIcon(IconLoader.getDisabledIcon(baseToggleIcon)) else baseToggleIcon,
+            if (group.inactive) "Activate group" else "Deactivate group (keeps selections, excludes from commandline)"
+        ) {
+            group.inactive = !group.inactive
+            rebuildRows()
+            refresh()
+            refitIfAuto()
+        }
 
         val addOption = flatIconButton(AllIcons.General.Add, "Add option to group") {
             group.options.add(ArgOption("", 0))
@@ -391,7 +399,7 @@ class ArgsPopupPanel(
 
         row.add(triangle)
         row.add(grip)
-        row.add(groupCheck)
+        row.add(activeToggle)
         row.add(name)
         row.add(addOption)
         row.add(deleteGroup)
@@ -424,6 +432,7 @@ class ArgsPopupPanel(
             onRight = { fields[option]?.focusField() }
         )
         indicator.alignmentY = 0.5f
+        indicator.isEnabled = !group.inactive
         indicators[option] = indicator
 
         val text = OptionTextCell(
@@ -434,7 +443,7 @@ class ArgsPopupPanel(
             onLeft = { indicators[option]?.requestFocusInWindow() }
         )
         fields[option] = text
-        applyFieldStyle(option, text)
+        text.setDimmed(group.inactive || option.selectionOrder <= 0)
 
         val delete = flatIconButton(AllIcons.Actions.Close, "Delete this option") {
             removeByIdentity(group.options, option)
@@ -700,61 +709,14 @@ class ArgsPopupPanel(
     private fun refresh()
     {
         setHighlight(newGroupButton, groups.isEmpty())
-        for ((option, indicator) in indicators)
+        for (meta in rowMetas)
         {
-            indicator.update(option.selectionOrder > 0)
-        }
-        for ((group, indicator) in groupIndicators)
-        {
-            indicator.update(groupState(group))
-        }
-        for ((option, field) in fields)
-        {
-            applyFieldStyle(option, field)
+            val option = meta.option ?: continue
+            val active = !meta.group.inactive
+            indicators[option]?.apply { isEnabled = active; update(option.selectionOrder > 0) }
+            fields[option]?.setDimmed(!active || option.selectionOrder <= 0)
         }
         refreshPreviewAndSave()
-    }
-
-    private fun groupState(group: ArgGroup): OrderIndicator.State
-    {
-        val options = group.options
-        if (options.isEmpty())
-        {
-            return OrderIndicator.State.OFF
-        }
-        val selected = options.count { it.selectionOrder > 0 }
-        return when (selected)
-        {
-            0 -> OrderIndicator.State.OFF
-            options.size -> OrderIndicator.State.ON
-            else -> OrderIndicator.State.MIXED
-        }
-    }
-
-    private fun toggleGroup(group: ArgGroup)
-    {
-        val allSelected = group.options.isNotEmpty() && group.options.all { it.selectionOrder > 0 }
-        if (allSelected)
-        {
-            group.options.forEach { it.selectionOrder = 0 }
-        }
-        else
-        {
-            var next = ArgCombiner.nextOrderInGroups(groups)
-            for (option in group.options)
-            {
-                if (option.selectionOrder <= 0)
-                {
-                    option.selectionOrder = next++
-                }
-            }
-        }
-        refresh()
-    }
-
-    private fun applyFieldStyle(option: ArgOption, field: OptionTextCell)
-    {
-        field.setDimmed(option.selectionOrder <= 0)
     }
 
     private fun orderedOptions(): List<ArgOption> = rowMetas.mapNotNull { it.option }
@@ -795,7 +757,7 @@ class ArgsPopupPanel(
     private fun scheduleSave()
     {
         saveFuture?.cancel(false)
-        val snapshot = groups.map { g -> ArgGroup(g.name, g.expanded, g.options.map { it.copy() }.toMutableList()) }
+        val snapshot = groups.map { g -> ArgGroup(g.name, g.expanded, g.options.map { it.copy() }.toMutableList(), g.inactive) }
         saveFuture = AppExecutorUtil.getAppScheduledExecutorService()
             .schedule({ ArgStore.save(project, snapshot) }, 250, TimeUnit.MILLISECONDS)
     }
@@ -990,6 +952,24 @@ class ArgsPopupPanel(
         const val PROP_Y = "ComplexArgs.popup.y"
         val DROP_LINE_COLOR = JBColor.namedColor("Label.foreground", JBColor.foreground())
     }
+}
+
+private class SlashedIcon(private val base: Icon) : Icon
+{
+    override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int)
+    {
+        base.paintIcon(c, g, x, y)
+        val g2 = g.create() as Graphics2D
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g2.color = ColorUtil.withAlpha(UIUtil.getLabelForeground(), 0.15)
+        g2.stroke = BasicStroke(JBUI.scale(1).toFloat())
+        g2.drawLine(x, y + base.iconHeight, x + base.iconWidth, y)
+        g2.dispose()
+    }
+
+    override fun getIconWidth(): Int = base.iconWidth
+
+    override fun getIconHeight(): Int = base.iconHeight
 }
 
 /** Glass-pane overlay that paints a translucent snapshot of the row being dragged. */

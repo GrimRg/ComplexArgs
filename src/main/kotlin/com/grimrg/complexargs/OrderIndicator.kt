@@ -46,6 +46,7 @@ class OrderIndicator(
         {
             override fun mouseClicked(e: MouseEvent)
             {
+                if (!isEnabled) return
                 requestFocusInWindow()
                 onToggle()
             }
@@ -59,6 +60,7 @@ class OrderIndicator(
         {
             override fun keyPressed(e: KeyEvent)
             {
+                if (!isEnabled) return
                 when (e.keyCode)
                 {
                     KeyEvent.VK_ENTER, KeyEvent.VK_SPACE -> { e.consume(); onToggle() }
@@ -78,6 +80,14 @@ class OrderIndicator(
         repaint()
     }
 
+    override fun setEnabled(enabled: Boolean)
+    {
+        super.setEnabled(enabled)
+        isFocusable = enabled
+        cursor = Cursor.getPredefinedCursor(if (enabled) Cursor.HAND_CURSOR else Cursor.DEFAULT_CURSOR)
+        repaint()
+    }
+
     override fun paintComponent(g: Graphics)
     {
         val g2 = g.create() as Graphics2D
@@ -88,18 +98,19 @@ class OrderIndicator(
         val y = (height - s) / 2
         val r = JBUI.scale(4).toFloat()
         val box = RoundRectangle2D.Float(x.toFloat(), y.toFloat(), s.toFloat(), s.toFloat(), r, r)
-        val fg = UIUtil.getLabelForeground()
+        val checkColor = if (isEnabled) UIUtil.getLabelForeground() else UIUtil.getLabelDisabledForeground()
 
         if (state != State.OFF)
         {
-            g2.color = ColorUtil.withAlpha(fg, 0.12)
+            g2.color = ColorUtil.withAlpha(checkColor, 0.12)
             g2.fill(box)
         }
-        g2.color = if (isFocusOwner) fg else JBColor.border()
+
+        g2.color = JBColor.border()
         g2.stroke = BasicStroke(JBUI.scale(1).toFloat())
         g2.draw(box)
 
-        g2.color = fg
+        g2.color = checkColor
         g2.stroke = BasicStroke(JBUI.scale(2).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
         when (state)
         {
@@ -110,6 +121,13 @@ class OrderIndicator(
             }
             State.MIXED -> g2.drawLine(x + (s * 0.28f).toInt(), y + s / 2, x + (s * 0.72f).toInt(), y + s / 2)
             State.OFF -> {}
+        }
+
+        if (!isEnabled)
+        {
+            g2.color = ColorUtil.withAlpha(UIUtil.getLabelForeground(), 0.15)
+            g2.stroke = BasicStroke(JBUI.scale(1).toFloat())
+            g2.drawLine(x, y + s, x + s, y)
         }
         g2.dispose()
     }
